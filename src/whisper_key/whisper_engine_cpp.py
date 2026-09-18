@@ -92,9 +92,9 @@ class WhisperEngineCpp:
                 audio_data = audio_data.flatten()
             audio_data = audio_data.astype(np.float32)
 
-            kwargs = {}
-            if self.language:
-                kwargs['language'] = self.language
+            # pywhispercpp defaults to 'en', which forces English output for
+            # other languages; auto-detect must be requested explicitly.
+            kwargs = {'language': self.language or 'auto'}
             if self.task == 'translate':
                 kwargs['translate'] = True
 
@@ -104,8 +104,8 @@ class WhisperEngineCpp:
             parts = []
             for s in segments:
                 text_chunk = getattr(s, 'text', None) or (s if isinstance(s, str) else '')
-                parts.append(text_chunk)
-            transcribed_text = ''.join(parts).strip()
+                parts.append(text_chunk.strip())
+            transcribed_text = ' '.join(p for p in parts if p)
 
             elapsed = time.time() - t0
             print(f"   ✓ Transcription completed in {elapsed:.1f} seconds")
