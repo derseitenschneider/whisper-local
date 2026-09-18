@@ -48,6 +48,7 @@ from .keycodes import KEY_CODES
 logger = logging.getLogger(__name__)
 
 NSKeyDownMask = 1 << 10
+NSKeyUpMask = 1 << 11
 NSFlagsChangedMask = 1 << 12
 
 MODIFIER_FLAGS = {
@@ -174,6 +175,7 @@ def _handle_key_down(event):
 
         if key_code == binding.keycode and current_flags == binding.modifiers:
             logger.debug(f"Traditional hotkey pressed: {binding.original}")
+            binding.is_active = True
             try:
                 threading.Thread(target=binding.press_callback, daemon=True).start()
             except Exception as e:
@@ -182,13 +184,30 @@ def _handle_key_down(event):
     return False
 
 
+def _handle_key_up(key_code: int):
+    # Release matches on keycode alone: the modifiers may already be up.
+    for binding in _bindings:
+        if binding.keycode != key_code or not binding.is_active:
+            continue
+        binding.is_active = False
+        if binding.release_callback:
+            logger.debug(f"Traditional hotkey released: {binding.original}")
+            try:
+                threading.Thread(target=binding.release_callback, daemon=True).start()
+            except Exception as e:
+                logger.error(f"Error in release callback for {binding.original}: {e}")
+
+
 def _handle_event(event):
     event_type = event.type()
 
     if event_type == 12:  # NSFlagsChanged
         _handle_flags_changed(event)
     elif event_type == 10:  # NSKeyDown
-        _handle_key_down(event)
+        if not event.isARepeat():
+            _handle_key_down(event)
+    elif event_type == 11:  # NSKeyUp
+        _handle_key_up(event.keyCode())
 
 
 def _event_tap_callback(proxy, event_type, event, refcon):
@@ -219,6 +238,7 @@ def _event_tap_callback(proxy, event_type, event, refcon):
                 return None
         elif event_type == kCGEventKeyUp and key_code in _suppressed_keycodes:
             _suppressed_keycodes.discard(key_code)
+            _handle_key_up(key_code)
             return None
     except Exception as e:
         logger.error(f"Error handling Quartz hotkey event: {e}")
@@ -278,7 +298,7 @@ def start():
 
     # Read-only fallback: shortcuts still fire, but their regular key is also
     # delivered to the focused app. This path is normally a permissions issue.
-    mask = NSKeyDownMask | NSFlagsChangedMask
+    mask = NSKeyDownMask | NSKeyUpMask | NSFlagsChangedMask
     _monitor = NSEvent.addGlobalMonitorForEventsMatchingMask_handler_(mask, _handle_event)
 
     if _monitor is None:
