@@ -165,6 +165,9 @@ class HotkeyListener:
 
     def _standard_hotkey_pressed(self):
         self.logger.info(f"Standard hotkey pressed: {self.recording_hotkey}")
+        if self.recording_mode == "toggle" and self.state_manager.audio_recorder.get_recording_status():
+            self.state_manager.stop_recording()
+            return
         self.keys_armed = False
         self.state_manager.start_recording()
 
