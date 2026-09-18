@@ -94,7 +94,8 @@ class WhisperEngineCpp:
 
             # pywhispercpp defaults to 'en', which forces English output for
             # other languages; auto-detect must be requested explicitly.
-            kwargs = {'language': self.language or 'auto'}
+            kwargs = {'language': self.language or 'auto',
+                      'initial_prompt': self._build_prompt()}
             if self.task == 'translate':
                 kwargs['translate'] = True
 
@@ -121,6 +122,17 @@ class WhisperEngineCpp:
             self.logger.error(f"Transcription failed: {e}", exc_info=True)
             print(f"❌ Transcription failed: {e}")
             return None
+
+    # whisper.cpp has no hotwords parameter; the equivalent is listing the terms
+    # in the initial prompt, which biases the decoder toward those spellings.
+    # Always passed (even empty) because pywhispercpp keeps params between calls.
+    def _build_prompt(self) -> str:
+        parts = []
+        if self.hotwords:
+            parts.append(', '.join(self.hotwords) + '.')
+        if self.initial_prompt:
+            parts.append(self.initial_prompt)
+        return ' '.join(parts)
 
     def change_model(self,
                       new_model_key: str,

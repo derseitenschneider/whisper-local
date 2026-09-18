@@ -435,6 +435,14 @@ class StateManager:
             self.whisper_engine.initial_prompt = combined_prompt or None
             self.whisper_engine.language = None if language == 'auto' else language
             self.whisper_engine.task = task if task in ('transcribe', 'translate') else 'transcribe'
+            # Re-read the dictionary each recording so added words apply without a restart.
+            # The faster-whisper engine stores hotwords joined, whisper.cpp as a list.
+            from .dictionary import list_hotwords
+            words = list_hotwords()
+            if isinstance(self.whisper_engine.hotwords, list):
+                self.whisper_engine.hotwords = words
+            else:
+                self.whisper_engine.hotwords = ', '.join(words) or None
         except Exception as e:
             self.logger.debug(f"Engine context update failed: {e}")
 
