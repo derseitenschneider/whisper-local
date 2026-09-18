@@ -6,6 +6,7 @@
 import logging
 import os
 import signal
+import sys
 
 logger = logging.getLogger(__name__)
 
@@ -43,6 +44,13 @@ def request_accessibility_permission():
 
 def handle_missing_permission(config_manager) -> bool:
     from ...terminal_ui import prompt_choice
+
+    # Launched as an .app (no terminal): nobody can answer the prompt, so raise the
+    # system grant dialog instead and keep running with auto-paste off for this session.
+    if sys.stdin is None or not sys.stdin.isatty():
+        logger.warning("Accessibility permission missing; requested via system dialog. Relaunch after granting.")
+        request_accessibility_permission()
+        return True
 
     app_name = _get_terminal_app_name()
 

@@ -116,6 +116,12 @@ def build_relaunch_command(windowless: bool = False) -> list:
     if pyapp_exe and os.path.isfile(pyapp_exe):
         return [pyapp_exe]
 
+    # Launched from the macOS .app (packaging/macos): relaunch the bundle, not the
+    # bare interpreter, so the new instance keeps the app's permission grants.
+    mac_app = os.environ.get("WHISPER_LOCAL_APP", "")
+    if sys.platform == "darwin" and mac_app and os.path.isdir(mac_app):
+        return ["/usr/bin/open", "-n", mac_app, "--args"]
+
     # Frozen builds (PyInstaller-style) genuinely do have sys.executable == the app.
     if getattr(sys, "frozen", False) or exe.lower().endswith("whisper-local.exe"):
         return [exe]
