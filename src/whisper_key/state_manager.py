@@ -117,7 +117,10 @@ class StateManager:
         overlay_cfg = self.config_manager.config.get('overlay', {}) or {}
         if overlay_cfg.get('enabled', True):
             try:
-                self.level_overlay = LevelOverlay(
+                overlay_cls = LevelOverlay
+                if platform.system() == 'Darwin':
+                    from .platform.macos.overlay import NativeLevelOverlay as overlay_cls
+                self.level_overlay = overlay_cls(
                     level_provider=self.audio_recorder.get_current_level,
                     click_through=overlay_cfg.get('click_through', True),
                     position=overlay_cfg.get('position', 'bottom-center'),
