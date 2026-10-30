@@ -136,6 +136,11 @@ cd whisper-local
 pip install -e .
 ```
 
+### Option 4 — macOS menu-bar app (from source)
+
+Runs without a terminal and starts from Spotlight/Raycast. Full walkthrough, including
+permissions, settings and updating: **[docs/macos-setup.md](docs/macos-setup.md)**.
+
 ### Launch
 
 | | |
@@ -393,6 +398,7 @@ After setup, **zero network traffic**. Confirm by running `whisper-local --docto
 
 ## 📚 Documentation
 
+- **[docs/macos-setup.md](docs/macos-setup.md)** — install the macOS menu-bar app on a new Mac, from clone to permissions
 - **[docs/troubleshooting.md](docs/troubleshooting.md)** — symptom → cause → fix table for the most common issues
 - **[docs/faq.md](docs/faq.md)** — privacy, comparisons (Whisper.cpp / WSR / Wispr Flow / Dragon), model picks, GPU notes
 - **[docs/distribution.md](docs/distribution.md)** — how releases work (standalone `.exe`, PyPI, winget, Homebrew) and how to ship one
