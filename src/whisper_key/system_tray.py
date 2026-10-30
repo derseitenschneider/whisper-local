@@ -468,7 +468,8 @@ class SystemTray:
         success = self.state_manager.request_audio_device_change(device_id, device_name)
 
         if success:
-            self.config_manager.update_user_setting('audio', 'input_device', device_id)
+            # Saved by name: PortAudio indices shift when devices are plugged in or out.
+            self.config_manager.update_user_setting('audio', 'input_device', self.state_manager.audio_recorder.get_device_setting())
             self.icon.menu = self._create_menu()
         else:
             self.logger.warning(f"Request to change audio device to {device_id} was not accepted")

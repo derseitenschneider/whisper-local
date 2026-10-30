@@ -247,10 +247,11 @@ audio: # Audio Recording Settings
 
     # Audio input device selection
     # "default" = Use system default microphone (default behavior)
-    # <device_id> = Specific device ID number (set automatically when changed via system tray)
+    # "<device name>" = Specific device, e.g. "Steinberg UR44C" (saved automatically
+    #                   when you pick a device in the system tray)
     #
-    # Note: Device IDs are assigned by the operating system and may change if devices
-    # are plugged/unplugged. Use system tray to select device - it will save the ID here.
+    # If the named device is unplugged, the system default input is used until it
+    # is plugged back in; Whisper Local switches back to it automatically.
     input_device: "default"
 
     # Noise suppression (requires: pip install 'whisper-local[noise]')

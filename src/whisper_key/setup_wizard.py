@@ -118,7 +118,7 @@ def _ask_mic():
     try:
         idx = int(choice) - 1
         if 0 <= idx < len(devices):
-            return devices[idx][0]
+            return devices[idx][1]  # by name: indices shift on plug/unplug
     except ValueError:
         pass
     return 'default'

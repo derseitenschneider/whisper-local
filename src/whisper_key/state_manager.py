@@ -82,7 +82,6 @@ class StateManager:
         self._continuous_aborted = False
         self._hotkey_listener_ref = None
         self._pending_model_change = None
-        self._pending_device_change = None
         self._command_mode = False
         self._state_lock = threading.Lock()
         self._streaming_display_active = False
@@ -639,13 +638,6 @@ class StateManager:
             with self._state_lock:
                 self.is_processing = False
                 pending_model = self._pending_model_change
-                pending_device = self._pending_device_change
-
-            if pending_device:
-                device_id, device_name = pending_device
-                self.logger.info(f"Executing pending device change to: {device_name}")
-                self._execute_audio_device_change(device_id, device_name)
-                self._pending_device_change = None
 
             if pending_model:
                 self.logger.info(f"Executing pending model change to: {pending_model}")
@@ -653,7 +645,7 @@ class StateManager:
                 self._execute_model_change(pending_model)
                 self._pending_model_change = None
 
-            if not (pending_device or pending_model):
+            if not pending_model:
                 self._update_ui_state("idle")
 
     def _handle_command_transcription(self, text: str, use_auto_enter: bool = False) -> bool:
@@ -1040,63 +1032,31 @@ class StateManager:
         self.system_tray.refresh_menu()
         return True
 
+    # Switch the microphone in place. The recorder reopens its stream on its
+    # own thread; an active recording is cancelled first because its audio
+    # would otherwise be cut off mid-sentence by the switch.
     def request_audio_device_change(self, device_id: int, device_name: str):
-        current_state = self.get_current_state()
-
         if device_id == self.audio_recorder.device:
             return True
 
-        if current_state == "recording":
+        if self.get_current_state() == "recording":
             print("🎤 Cancelling recording to switch audio device...")
             self.cancel_active_recording()
-            self._execute_audio_device_change(device_id, device_name)
-            return True
 
-        if current_state == "processing":
-            print("⏳ Queueing audio device change until transcription completes...")
-            self._pending_device_change = (device_id, device_name)
-            return True
-
-        if current_state == "idle":
-            self._execute_audio_device_change(device_id, device_name)
-            return True
-
-        self.logger.warning(f"Unexpected state for device change: {current_state}")
-        return False
-
-    def _execute_audio_device_change(self, device_id: int, device_name: str):
         try:
-            print(f"🎤 Switching to: {device_name}")
-
-            channels = self.audio_recorder.channels
-            dtype = self.audio_recorder.dtype
-            max_duration = self.audio_recorder.max_duration
-            on_max_duration = self.audio_recorder.on_max_duration_reached
-            vad_manager = self.audio_recorder.vad_manager
-            streaming_manager = self.audio_recorder.streaming_manager
-            on_streaming_result = self.audio_recorder.on_streaming_result
-
-            noise_cfg = (self.config_manager.config.get('audio') or {}).get('noise_suppression') or {}
-            new_recorder = AudioRecorder(
-                on_vad_event=self.handle_vad_event,
-                channels=channels,
-                dtype=dtype,
-                max_duration=max_duration,
-                on_max_duration_reached=on_max_duration,
-                vad_manager=vad_manager,
-                streaming_manager=streaming_manager,
-                on_streaming_result=on_streaming_result,
-                device=device_id if device_id != -1 else None,
-                noise_suppression_config=noise_cfg,
-            )
-
-            self.audio_recorder = new_recorder
-
-            print(f"✅ Successfully switched audio device to: {device_name}")
-
+            self.audio_recorder.switch_device(device_id if device_id != -1 else None)
         except Exception as e:
             self.logger.error(f"Failed to change audio device: {e}")
             print(f"❌ Failed to switch audio device: {e}")
+            return False
+
+        print(f"🎤 Switching to: {device_name}")
+        return True
+
+    # Called from the recorder's capture thread after it moved to another
+    # input (device unplugged, re-plugged, or picked in the tray).
+    def handle_audio_device_switched(self, device_name: str):
+        self.system_tray.refresh_menu()
 
     def _initialize_audio_host(self):
         try:
