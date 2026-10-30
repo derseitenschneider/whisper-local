@@ -101,10 +101,10 @@ class ClipboardManager:
             self.logger.error(f"Failed to clear clipboard: {e}")
             return False
 
-    def _type_delivery(self, text: str) -> bool:
+    def _type_delivery(self, text: str, keep_on_clipboard: bool = False) -> bool:
         try:
             keyboard.type_text(text)
-            if self.type_also_copy_to_clipboard:
+            if self.type_also_copy_to_clipboard or keep_on_clipboard:
                 pyperclip.copy(text)
             print("   ✓ Auto-pasted via text injection")
             return True
@@ -112,10 +112,12 @@ class ClipboardManager:
             self.logger.error(f"Failed to inject text: {e}")
             return False
 
-    def _clipboard_paste(self, text: str) -> bool:
+    # keep_on_clipboard skips restoring the previous clipboard, leaving the
+    # transcript there in case the paste had no text field to land in.
+    def _clipboard_paste(self, text: str, keep_on_clipboard: bool = False) -> bool:
         try:
             original_content = None
-            if self.paste_preserve_clipboard:
+            if self.paste_preserve_clipboard and not keep_on_clipboard:
                 original_content = pyperclip.paste()
 
             if not self.copy_text(text):
@@ -136,11 +138,11 @@ class ClipboardManager:
             self.logger.error(f"Failed to simulate paste keypress: {e}")
             return False
 
-    def execute_delivery(self, text: str) -> bool:
+    def execute_delivery(self, text: str, keep_on_clipboard: bool = False) -> bool:
         if self.delivery_method == "type":
-            return self._type_delivery(text)
+            return self._type_delivery(text, keep_on_clipboard)
         else:
-            return self._clipboard_paste(text)
+            return self._clipboard_paste(text, keep_on_clipboard)
 
     def send_enter_key(self) -> bool:
         try:
@@ -156,11 +158,12 @@ class ClipboardManager:
 
     def deliver_transcription(self,
                               transcribed_text: str,
-                              use_auto_enter: bool = False) -> bool:
+                              use_auto_enter: bool = False,
+                              keep_on_clipboard: bool = False) -> bool:
 
         try:
             if self.auto_paste:
-                success = self.execute_delivery(transcribed_text)
+                success = self.execute_delivery(transcribed_text, keep_on_clipboard)
                 if success and use_auto_enter:
                     if self.delivery_method == "type":
                         delay = self.type_auto_enter_delay + len(transcribed_text) / 100 * self.type_auto_enter_delay_per_100_chars

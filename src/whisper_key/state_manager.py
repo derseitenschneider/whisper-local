@@ -312,7 +312,7 @@ class StateManager:
             self.config_manager.get_streaming_config(),
             streaming_available,
             bool(self.clipboard_manager.auto_paste),
-            self._foreground_is_textable(),
+            foreground.focused_text_input() is not False,
             self.app_rules.match_for_foreground(),
         )
         if not active:
@@ -558,8 +558,12 @@ class StateManager:
                     self.level_overlay.flash_success()
                 return
 
-            if not self._foreground_is_textable():
-                self.logger.info("No textable foreground window; opening fallback window")
+            # Checked at delivery time, not when recording started: focus can
+            # move (or be lost) during a long dictation.
+            focused_input = foreground.focused_text_input()
+            if focused_input is False:
+                self.logger.info("No text field focused; copying transcript instead of pasting")
+                print("   ⚠ No text field focused — transcript copied to clipboard")
                 self.clipboard_manager.copy_text(transcribed_text)
                 self.fallback_window.show(
                     transcribed_text,
@@ -568,9 +572,9 @@ class StateManager:
                 self.last_transcription = transcribed_text
                 self.recent_transcriptions.appendleft(transcribed_text)
                 self.system_tray.refresh_menu()
-                self.system_tray.notify("Captured your dictation — see the popup.")
+                self.system_tray.notify("No text field focused — transcript copied to clipboard.")
                 if self.level_overlay:
-                    self.level_overlay.flash_success()
+                    self.level_overlay.flash_failure("No text field — copied")
                 return
 
             effective_auto_enter = use_auto_enter
@@ -589,8 +593,11 @@ class StateManager:
                 self.clipboard_manager.update_auto_paste(effective_auto_paste)
 
             try:
+                # When the app can't say what has focus, the paste may land
+                # nowhere, so the transcript stays on the clipboard as a backup.
                 success = self.clipboard_manager.deliver_transcription(
-                    transcribed_text, effective_auto_enter
+                    transcribed_text, effective_auto_enter,
+                    keep_on_clipboard=focused_input is None,
                 )
             finally:
                 if previous_auto_paste is not None:
@@ -842,20 +849,6 @@ class StateManager:
             self.level_overlay.flash_success()
         self.logger.info(f"Rephrase complete: {len(selection)} -> {len(polished)} chars")
         print("   ✓ Rephrased and pasted")
-
-    NON_TEXT_EXES = {'progman.exe', 'workerw.exe', 'dwm.exe', 'searchhost.exe',
-                     'shellexperiencehost.exe', 'startmenuexperiencehost.exe',
-                     'lockapp.exe', 'sihost.exe'}
-
-    def _foreground_is_textable(self) -> bool:
-        try:
-            info = foreground.get_foreground_app() or {}
-        except Exception:
-            return True
-        exe = (info.get('exe') or '').lower()
-        if not exe:
-            return False
-        return exe not in self.NON_TEXT_EXES
 
 
     def set_overlay_position(self, name: str) -> bool:

@@ -53,3 +53,23 @@ def get_foreground_app() -> dict:
     except Exception as e:
         logger.debug(f"Foreground app probe failed: {e}")
         return {}
+
+
+# --- Focused text input detection -------------------------------------------
+
+# Shell surfaces (desktop, taskbar, Start, lock screen) where a paste lands nowhere.
+_NON_TEXT_EXES = {'progman.exe', 'workerw.exe', 'dwm.exe', 'searchhost.exe',
+                  'shellexperiencehost.exe', 'startmenuexperiencehost.exe',
+                  'lockapp.exe', 'sihost.exe'}
+
+
+# Mirrors the macOS three-way answer (True / False / None = can't tell).
+# Windows only knows the foreground app, so any regular app counts as True.
+def focused_text_input():
+    try:
+        exe = (get_foreground_app() or {}).get('exe', '').lower()
+    except Exception:
+        return None
+    if not exe:
+        return False
+    return exe not in _NON_TEXT_EXES
